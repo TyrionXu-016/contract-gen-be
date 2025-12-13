@@ -111,15 +111,6 @@ results = crawl_contracts(
     max_pages=2,
     save_dir="买卖合同示范文本",
 )
-
-# 或者指定若干 Id 直接抓取
-results = crawl_contracts(
-    ids=[
-        "5e068390-d87c-4ea5-aa83-18a8ed36e3ae",
-        "273e0034-7d9c-4358-80b1-1cdfb3754fec",
-    ],
-    save_dir="指定合同示范文本",
-)
 ```
 
 
