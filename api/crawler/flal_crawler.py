@@ -662,13 +662,13 @@ def parse_args():
     parser.add_argument(
         "--sleep-search",
         type=float,
-        default=5.0,
+        default=10.0,
         help="每次搜索请求之间的等待秒数（默认：5.0）"
     )
     parser.add_argument(
         "--sleep-download",
         type=float,
-        default=5.0,
+        default=10.0,
         help="每个案例详情+下载之间的等待秒数（默认：5.0）"
     )
     parser.add_argument(
