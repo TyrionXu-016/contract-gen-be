@@ -14,14 +14,13 @@ AI_SERVICE_BASE_URL ="http://localhost:8000/docs"是对的，不用改，直接�
 向量库用的模型密钥也可以像这样在.env_example文件添加一下
 
 ### 运行
-uvicorn model_api.main:app --reload
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ### 查看网页，使用大模型
 http://127.0.0.1:8000/docs
 
 ### model_api结构
-backend.txt 是给后端（徐阳）参考，是用的FastAPI作为模型接口给后端
+front.html 是给（徐阳）参考，是用的FastAPI作为模型接口，如果不行再改
 knowledge_retriever.py 作为向量知识库的接口，目前是模拟状态，还待完善（等陈玲）
-main.py 配置模型和输入输出的地方，已在根目录放了刘娅给的最新提示词（略微修改）
-关于提示词的解释：为保证提示词数量稳定，且模型可以有效吸收，知识库的接口直接给我会好点
+main.py 配置模型和输入输出的地方，已在根目录放了刘娅给的最新提示词
 

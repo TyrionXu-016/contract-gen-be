@@ -1,0 +1,207 @@
+### 前端示例
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>合同生成器</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { text-align: center; color: #333; }
+        .controls { margin-bottom: 20px; text-align: center; }
+        .controls button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 0 10px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+        }
+        .controls button.start { background-color: #28a745; color: white; }
+        .controls button.stop { background-color: #dc3545; color: white; }
+        #output-container {
+            border: 1px solid #ddd;
+            padding: 15px;
+            min-height: 300px;
+            max-height: 600px; /* 限制高度 */
+            overflow-y: auto; /* 超出滚动 */
+            white-space: pre-wrap; /* 保留空白和换行 */
+            font-family: 'Courier New', monospace;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            line-height: 1.6;
+        }
+        .loading { color: #666; font-style: italic; text-align: center; }
+        .error { color: red; font-weight: bold; }
+        .info { color: #007bff; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>合同生成器</h1>
+        
+        <div class="controls">
+            <button class="start" onclick="startGeneration()">开始生成合同</button>
+            <button class="stop" onclick="stopGeneration()">停止接收</button>
+        </div>
+        
+        <div id="output-container">
+            <p class="loading">点击"开始生成合同"按钮开始生成...</p>
+        </div>
+    </div>
+    
+    <script>
+        let abortController = null; // 用于取消 fetch 请求
+        let fullContent = '';       // 用于累积并显示完整内容
+        let sseBuffer = '';         // 用于缓存不完整的 SSE 消息片段
+
+        const outputDiv = document.getElementById('output-container');
+
+        function displayMessage(msg, type = '') {
+            const p = document.createElement('p');
+            p.className = type;
+            p.textContent = msg;
+            outputDiv.appendChild(p);
+            outputDiv.scrollTop = outputDiv.scrollHeight; // 自动滚动
+        }
+
+        function clearOutput() {
+            outputDiv.innerHTML = '';
+            fullContent = '';
+            sseBuffer = '';
+        }
+        
+        async function startGeneration() {
+            clearOutput();
+            displayMessage('正在生成合同...', 'loading');
+
+            // 如果有正在进行的请求，先停止它
+            if (abortController) {
+                abortController.abort();
+            }
+            abortController = new AbortController();
+            const signal = abortController.signal;
+            
+            // 准备请求数据
+            const requestData = {
+                prompt: "请生成一份详细的技术开发合同",
+                contract_type: "技术开发合同",
+                first_party: "北京智能科技有限公司",
+                second_party: "上海数据有限公司",
+                cooperation_purpose: "合作开发人工智能大数据分析平台",
+                Core_scenario: "技术开发与知识产权保护",
+                max_new_tokens: 5000,
+                temperature: 0.7,
+                use_new_knowledge_base: true
+            };
+            
+            try {
+                const response = await fetch('http://localhost:8000/generate-contract', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData),
+                    signal: signal // 将 AbortController 的 signal 传递给 fetch
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status} - ${response.statusText}`);
+                }
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        displayMessage('数据流已结束。', 'info');
+                        break;
+                    }
+                    
+                    const chunk = decoder.decode(value, { stream: true }); // stream: true 告诉 decoder 这是流的一部分
+                    processSSEChunk(chunk);
+                }
+                
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    displayMessage('合同生成已停止。', 'info');
+                } else {
+                    console.error('Fetch error:', error);
+                    displayMessage(`错误: ${error.message}`, 'error');
+                }
+            } finally {
+                abortController = null; // 请求结束后清除 controller
+            }
+        }
+        
+        function processSSEChunk(newChunk) {
+            sseBuffer += newChunk; // 将新片段添加到缓冲区
+
+            let messageEndIndex;
+            while ((messageEndIndex = sseBuffer.indexOf('\n\n')) !== -1) {
+                // 提取一个完整的 SSE 消息
+                const message = sseBuffer.substring(0, messageEndIndex + 2);
+                sseBuffer = sseBuffer.substring(messageEndIndex + 2); // 移除已处理的消息
+
+                // 解析 SSE 消息中的每一行
+                const lines = message.split('\n');
+                let dataStr = '';
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        dataStr += line.substring(6); // 累积所有 data: 行的内容
+                    }
+                }
+
+                if (dataStr) { // 确保有实际数据
+                    try {
+                        const data = JSON.parse(dataStr);
+                        
+                        if (data.content) {
+                            if (outputDiv.querySelector('.loading')) {
+                                outputDiv.innerHTML = ''; // 清除 "正在生成" 提示
+                            }
+                            fullContent += data.content;
+                            outputDiv.textContent = fullContent; // 直接更新textContent，防止HTML注入
+                            outputDiv.scrollTop = outputDiv.scrollHeight; // 自动滚动到底部
+                        }
+                        
+                        if (data.done) {
+                            console.log(`生成完成，总长度: ${data.total_length} 字符`);
+                            displayMessage('\n\n=== 合同生成完成 ===', 'info');
+                            abortController = null; // 确保请求完成时清理controller
+                        }
+                        
+                        if (data.error) {
+                            console.error('服务器错误:', data.error);
+                            displayMessage(`\n服务器错误: ${data.error}`, 'error');
+                            abortController = null; // 出现错误时也清理controller
+                        }
+                        
+                    } catch (e) {
+                        console.warn('解析JSON失败:', e, '原始数据:', dataStr);
+                        displayMessage(`解析数据错误: ${e.message}`, 'error');
+                    }
+                }
+            }
+        }
+        
+        function stopGeneration() {
+            if (abortController) {
+                abortController.abort(); // 中止 fetch 请求
+                abortController = null;
+                displayMessage('用户已手动停止生成。', 'info');
+            } else {
+                displayMessage('没有正在进行的生成任务。', 'info');
+            }
+        }
+        
+        // 页面卸载时清理
+        window.addEventListener('beforeunload', () => {
+            if (abortController) {
+                abortController.abort();
+            }
+        });
+    </script>
+</body>
+</html>

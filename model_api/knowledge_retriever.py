@@ -1,13 +1,15 @@
-async def retrieve_knowledge_from_kb(query: str, contract_type: str = None, top_k: int = 3) -> dict:
+#import httpx 
+
+async def retrieve_knowledge_from_kb(query: str, contract_type: str = None, cooperation_purpose: str = None, Core_scenario: str = None, top_k: int = 3) -> dict:
     """
     负责从外部知识库服务检索相关信息。
     """
-    print(f"Retrieving knowledge for query: '{query}' (Contract Type: {contract_type})")
-
+    #print(f"Retrieving knowledge for query: '{query}' (Contract Type: {contract_type}, Purpose: {cooperation_purpose}, Core Scenario: {Core_scenario})")
     # TODO: 在这里添加实际调用外部知识库服务的逻辑
     # 例如，构建 HTTP 请求，发送到向量数据库的API，处理响应等
-    # 目前使用模拟数据
-    if "买卖合同" in query or "采购合同" in contract_type:
+    
+    # 目前仍然使用模拟数据
+    if "买卖合同" in query or "采购合同" in str(contract_type):
         return {
             "latest_laws": [
                 "《中华人民共和国民法典》第465条：依法成立的合同，受法律保护。",
@@ -43,4 +45,4 @@ async def retrieve_knowledge_from_kb(query: str, contract_type: str = None, top_
             "standards": [],
             "templates": []
         }
-    
+
