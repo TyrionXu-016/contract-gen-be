@@ -74,7 +74,8 @@ class VectorDBManager:
         segments = split_contract(content, data_type="contract")
         segment_embeddings = []
         for i in range(len(segments)):
-            print(f"==向量化第{i}段合同文本==")
+            if i%10 == 0:
+                print(f"==向量化第{i}-{i+10}段合同文本==")
             embeddings = self.bge_model.encode(segments[i])
             segment_embeddings.append(embeddings)
         segment_embeddings = np.array(segment_embeddings)
@@ -153,7 +154,8 @@ class VectorDBManager:
         segments = split_contract(content, data_type="case")
         segment_embeddings = []
         for i in range(len(segments)):
-            print(f"==向量化第{i}段案例文本==")
+            if i%10 == 0:
+                print(f"==向量化第{i}-{i+10}段案例文本==")
             embeddings = self.bge_model.encode(segments[i])
             segment_embeddings.append(embeddings)
         segment_embeddings = np.array(segment_embeddings)
@@ -315,70 +317,134 @@ class VectorDBManager:
             "query": user_query,
             "filters": user_filters
         }
-    
-    def backup_database(self, backup_name: str = None):
+
+    def backup_database(self, backup_name: str = None, backup_dir: str = None):
         """
         备份数据库到指定目录
         
         Args:
             backup_name: 备份名称，默认为时间戳
+            backup_dir: 备份目录，默认为原数据库目录的同级backups目录
+            
+        Returns:
+            备份路径
         """
         if backup_name is None:
             backup_name = f"backup_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
         
-        backup_path = os.path.join(self.persist_directory, backup_name)
+        # 确定备份目录
+        if backup_dir is None:
+            # 默认为数据库目录的同级backups目录
+            base_dir = os.path.dirname(self.persist_directory)
+            backup_dir = os.path.join(base_dir, "backups")
         
-        # 复制整个数据库目录
+        # 创建备份目录
+        os.makedirs(backup_dir, exist_ok=True)
+        
+        backup_path = os.path.join(backup_dir, backup_name)
+        
+        # 如果备份目录已存在，先删除
+        if os.path.exists(backup_path):
+            shutil.rmtree(backup_path)
+        
+        # 复制整个向量数据库目录
         if os.path.exists(self.persist_directory):
-            shutil.copytree(self.persist_directory, backup_path, 
-                          ignore=shutil.ignore_patterns('backups', '*.tmp'))
+            print(f"🔍 正在备份向量数据库从 {self.persist_directory} 到 {backup_path}")
+            
+            # 使用copytree复制目录
+            shutil.copytree(self.persist_directory, backup_path)
             
             # 记录备份信息
             info_file = os.path.join(backup_path, "backup_info.json")
             backup_info = {
                 "backup_time": datetime.datetime.now().isoformat(),
                 "source_path": self.persist_directory,
+                "backup_path": backup_path,
                 "collection_count": len(self.client.list_collections()),
-                "backup_name": backup_name
+                "backup_name": backup_name,
+                "collection_names": [col.name for col in self.client.list_collections()]
             }
             
             import json
             with open(info_file, 'w', encoding='utf-8') as f:
                 json.dump(backup_info, f, indent=2, ensure_ascii=False)
             
+            print(f"✅ 数据库备份完成: {backup_path}")
             return backup_path
+        
+        print(f"⚠️  数据库目录不存在: {self.persist_directory}")
         return None
     
-    def restore_database(self, backup_name: str):
+    def restore_database(self, backup_name: str, backup_dir: str = None):
         """
         从备份恢复数据库
         
         Args:
-            backup_name: 备份名称或路径
+            backup_name: 备份名称
+            backup_dir: 备份目录，默认为原数据库目录的同级backups目录
+            
+        Returns:
+            bool: 恢复是否成功
         """
-        backup_path = os.path.join(self.persist_directory, backup_name)
+        # 确定备份目录
+        if backup_dir is None:
+            # 默认为数据库目录的同级backups目录
+            base_dir = os.path.dirname(self.persist_directory)
+            backup_dir = os.path.join(base_dir, "backups")
+        
+        backup_path = os.path.join(backup_dir, backup_name)
+        
         if not os.path.exists(backup_path):
-            raise FileNotFoundError(f"备份不存在: {backup_path}")
+            # 尝试直接使用backup_name作为完整路径
+            if os.path.exists(backup_name):
+                backup_path = backup_name
+            else:
+                raise FileNotFoundError(f"备份不存在: {backup_path}")
         
-        # 停止当前客户端
-        del self.client
+        # 检查备份信息文件
+        info_file = os.path.join(backup_path, "backup_info.json")
+        if os.path.exists(info_file):
+            import json
+            with open(info_file, 'r', encoding='utf-8') as f:
+                backup_info = json.load(f)
+            print(f"📋 正在恢复备份: {backup_info.get('backup_name', backup_name)}")
+            print(f"📅 备份时间: {backup_info.get('backup_time')}")
         
-        # 清空当前数据库目录
+        print(f"🔍 正在从备份恢复: {backup_path} -> {self.persist_directory}")
+        
+        # 关闭当前客户端连接
+        try:
+            del self.client
+        except:
+            pass
+        
+        # 如果目标目录存在，先清空
         if os.path.exists(self.persist_directory):
+            print(f"🧹 清空现有数据库目录: {self.persist_directory}")
             shutil.rmtree(self.persist_directory)
         
-        # 恢复备份
+        # 从备份恢复
         shutil.copytree(backup_path, self.persist_directory)
         
-        # 重新初始化客户端
-        self.client = chromadb.PersistentClient(
-            path=self.persist_directory,
-            settings=Settings(anonymized_telemetry=False)
-        )
-        
-        # 重新获取集合
-        self.contract_collection = self.client.get_collection(name=config.COLLECTION_CONTRACTS)
-        self.law_collection = self.client.get_collection(name=config.COLLECTION_LAWS)
-        self.case_collection = self.client.get_collection(name=config.COLLECTION_CASE)
-        
-        print(f"✅ 数据库已从备份恢复: {backup_name}")
+        # 重新初始化客户端和集合
+        try:
+            import chromadb
+            from chromadb.config import Settings
+            
+            self.client = chromadb.PersistentClient(
+                path=self.persist_directory,
+                settings=Settings(anonymized_telemetry=False)
+            )
+            
+            # 重新获取集合
+            self.contract_collection = self.client.get_collection(name=config.COLLECTION_CONTRACTS)
+            self.law_collection = self.client.get_collection(name=config.COLLECTION_LAWS)
+            self.case_collection = self.client.get_collection(name=config.COLLECTION_CASE)
+            
+            print(f"✅ 数据库已成功从备份恢复: {backup_name}")
+            print(f"📊 恢复的集合数量: {len(self.client.list_collections())}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ 恢复数据库时出错: {str(e)}")
+            raise

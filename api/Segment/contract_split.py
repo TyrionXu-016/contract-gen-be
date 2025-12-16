@@ -30,6 +30,32 @@ def receive_crawl_data(crawl_data: dict) -> tuple[str, str, str]:
         except Exception as e:
             print(f"读取txt文件失败：{e}")
     return data_id, data_type, raw_text
+def receive_contract_data(contract_data: dict) -> tuple[str, str, str]:
+    """
+    适配爬虫模块的输出格式，提取核心信息
+    :param contract_data: 爬虫返回的单条数据字典（来自crawl_laws的结果）
+    :return: data_id, data_type, raw_text
+      "id": <contract_id>,
+        "title": <标题>,
+        "code": <合同编号或空串>,
+        "files": [
+            {"type": "pdf", "path": "xxx.pdf 或空串", "txt_path": "xxx.txt 或空串"},
+    """
+    # 从爬虫结果中提取字段，对应爬虫的返回格式
+    data_id = contract_data.get("id", "default_id")
+    # 爬虫抓取的是法规，所以数据类型固定为"law"
+    data_type = "law"
+    # 读取txt文件内容作为原始文本（爬虫已自动生成txt）
+    raw_text = ""
+    txt_path = contract_data["files"][0]["txt_path"]
+    if txt_path:
+        try:
+            with open(txt_path, "r", encoding="utf-8") as f:
+                raw_text = f.read()
+        except Exception as e:
+            print(f"读取txt文件失败：{e}")
+    return data_id, data_type, raw_text
+
 
 # ====================== 2. 分块核心逻辑 ======================
 def split_contract(raw_text: str, data_type: str) -> list[str]:

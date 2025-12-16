@@ -1,0 +1,35 @@
+# 基本忽略文件
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# 虚拟环境
+venv/
+env/
+.venv/
+
+# 模型权重文件（大文件）
+*.pth
+*.pt
+*.h5
+*.pkl
+*.ckpt
+*.onnx
+
+# 数据集和输出文件
+*.jpg
+*.png
+*.mp4
+output/
+results/
+
+# 编辑器文件
+.vscode/
+.idea/
+*.ipynb_checkpoints
+
+# 系统文件
+.DS_Store
+Thumbs.db
