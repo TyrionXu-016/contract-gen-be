@@ -605,10 +605,6 @@ def crawl_cases(
             preset_title=preset_title,  # 把 cpws_al_title 透传下去
         )
         results.append(info)
-
-        if(len(results)>2):
-            break
-
         time.sleep(download_delay)
 
     return results
