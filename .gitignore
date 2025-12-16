@@ -11,3 +11,4 @@ api/crawlers/__pycache__/*
 backend/__pycache__/*
 
 .env
+db.sqlite3
