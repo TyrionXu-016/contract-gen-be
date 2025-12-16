@@ -16,6 +16,10 @@
   # 直接按 id 下载
   python htsfw_crawler.py --ids 5e068390-d87c-4ea5-aa83-18a8ed36e3ae
 
+新增：
+  - 支持配置“每条记录下载后的休眠时间”，默认 10 秒：
+    python htsfw_crawler.py -k 买卖 -p 1 --sleep-seconds 5
+
 依赖：
   pip install requests beautifulsoup4 pdfplumber
 """
@@ -175,6 +179,7 @@ def search_contracts(
         if total_page is not None and page >= int(total_page):
             break
 
+        # 页与页之间轻微节流
         time.sleep(1.0)
 
     print(f"\n搜索结果总数（去重前）：{len(all_items)}")
@@ -354,16 +359,18 @@ def crawl_contracts(
     max_pages: int = 1,
     save_dir: str = "",
     auto_txt: bool = True,
+    sleep_seconds: float = 10.0,
 ) -> List[Dict[str, Any]]:
     """
     主入口函数：按关键字搜索 / 或 按给定 id 列表抓取合同范文。
 
     参数：
-      keyword  : 搜索关键词（可选）；
-      ids      : 明确的合同 id 列表（可选），形如 "5e068390-d87c-4ea5-aa83-18a8ed36e3ae"；
-      max_pages: 搜索翻页数上限，仅在 keyword 模式下生效；
-      save_dir : 保存目录，默认 "合同示范文本_下载"；
-      auto_txt : 是否自动从 PDF 导出 txt。
+      keyword       : 搜索关键词（可选）；
+      ids           : 明确的合同 id 列表（可选），形如 "5e068390-d87c-4ea5-aa83-18a8ed36e3ae"；
+      max_pages     : 搜索翻页数上限，仅在 keyword 模式下生效；
+      save_dir      : 保存目录，默认 "合同示范文本_下载"；
+      auto_txt      : 是否自动从 PDF 导出 txt；
+      sleep_seconds : 每条记录下载之间的休眠秒数，默认 10 秒。
 
     返回：
       每个元素结构参考 download_for_contract 的返回值。
@@ -371,6 +378,9 @@ def crawl_contracts(
     if not save_dir:
         save_dir = "合同示范文本_下载"
     ensure_dir(save_dir)
+
+    print(f"保存目录：{save_dir}")
+    print(f"每条记录下载后的休眠秒数：{sleep_seconds}")
 
     session = new_session()
 
@@ -396,7 +406,9 @@ def crawl_contracts(
         return []
 
     results: List[Dict[str, Any]] = []
-    for cid in contract_ids:
+    total = len(contract_ids)
+    for idx, cid in enumerate(contract_ids, start=1):
+        print(f"\n=== 正在处理第 {idx}/{total} 条合同 ===")
         info = download_for_contract(
             session=session,
             contract_id=cid,
@@ -404,7 +416,10 @@ def crawl_contracts(
             auto_txt=auto_txt,
         )
         results.append(info)
-        time.sleep(1.0)
+
+        # 每条记录之间休眠
+        print(f"  -> 本条合同处理完毕，休眠 {sleep_seconds} 秒以防被反爬...")
+        time.sleep(sleep_seconds)
 
     return results
 
@@ -441,6 +456,12 @@ def parse_args():
         action="store_true",
         help="不要自动从 PDF 导出 txt"
     )
+    parser.add_argument(
+        "--sleep-seconds",
+        type=float,
+        default=10.0,
+        help="每条记录下载之间的休眠秒数（默认：10 秒）"
+    )
     return parser.parse_args()
 
 
@@ -457,6 +478,7 @@ def main_cli():
         max_pages=args.max_pages,
         save_dir=args.save_dir,
         auto_txt=not args.no_txt,
+        sleep_seconds=args.sleep_seconds,
     )
 
     print("\n=== 抓取完成，结果摘要 ===")

@@ -14,6 +14,10 @@
   python flk_crawler.py -k 公司法
   python flk_crawler.py -k 民法典 -p 5
   python flk_crawler.py -k 证券法 --no-filter
+
+新增：
+  - 支持配置“每条记录下载后的休眠时间”，默认 10 秒：
+    --sleep-seconds 5   # 每条记录间隔 5 秒
 """
 
 import os
@@ -250,6 +254,7 @@ def collect_main_body_laws(
                 else:
                     print("  · 非本体，跳过：", title_plain)
 
+        # 页面之间的轻微节流
         time.sleep(1.0)
 
     print(f"\n总共收集到候选记录：{len(all_items)} 条。")
@@ -450,6 +455,7 @@ def crawl_laws(
     cookie: str = "",
     auto_txt: bool = True,
     latest_only: bool = True,
+    sleep_seconds: float = 10.0,
 ) -> List[Dict[str, str]]:
     """
     对外主入口函数：抓取指定关键词的法规正文，并返回下载结果列表。
@@ -463,6 +469,7 @@ def crawl_laws(
       cookie       : 可选 Cookie 字符串（否则使用 COOKIE_STR 或环境变量 FLK_COOKIE）
       auto_txt     : 是否对 docx 自动导出 txt，默认 True
       latest_only  : 是否只保留“同名法规”的最新版本（按标题归一化+公布日期比较），默认 True
+      sleep_seconds: 每条记录下载之间的休眠秒数，默认 10 秒
 
     返回：
       列表，每个元素为：
@@ -487,6 +494,7 @@ def crawl_laws(
     print(f"排除词：{exclude_words}")
     print(f"是否只保留最新版本：{latest_only}")
     print(f"保存目录：{save_dir}")
+    print(f"每条记录下载后的休眠秒数：{sleep_seconds}")
 
     session = new_session(cookie=cookie)
 
@@ -528,7 +536,8 @@ def crawl_laws(
     # 2. 逐条下载正文
     results: List[Dict[str, str]] = []
     success = 0
-    for item in items:
+    for idx, item in enumerate(items, start=1):
+        print(f"\n=== 正在处理第 {idx}/{len(items)} 条记录 ===")
         paths = download_body_for_item(
             session=session,
             item=item,
@@ -545,7 +554,10 @@ def crawl_laws(
         if merged["doc_path"]:
             success += 1
         results.append(merged)
-        time.sleep(1.0)
+
+        # 每条记录下载之后休眠 sleep_seconds 秒（默认 10 秒）
+        print(f"  -> 本条记录处理完毕，休眠 {sleep_seconds} 秒以防被反爬...")
+        time.sleep(sleep_seconds)
 
     print(f"\n共 {len(items)} 条待下载记录，成功下载 {success} 条。")
     print("保存目录：", os.path.abspath(save_dir))
@@ -600,6 +612,12 @@ def parse_args():
         action="store_true",
         help="下载所有匹配版本（默认只保留同名法规的最新公布日期版本）"
     )
+    parser.add_argument(
+        "--sleep-seconds",
+        type=float,
+        default=10.0,
+        help="每条记录下载之间的休眠秒数，默认 10 秒"
+    )
     return parser.parse_args()
 
 
@@ -620,6 +638,7 @@ def main_cli():
         cookie=args.cookie,
         auto_txt=not args.no_txt,
         latest_only=not args.all_versions,
+        sleep_seconds=args.sleep_seconds,
     )
 
     # 输出一下结果
