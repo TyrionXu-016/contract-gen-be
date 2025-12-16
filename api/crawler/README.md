@@ -196,10 +196,10 @@ download_delay: 下载每个 PDF 之间的间隔（秒），默认 2.0
 调用示例：
 
 ```python
-from flal_crawler import crawl_contracts
+from flal_crawler import crawl_cases
 
 # 按关键字抓取前 1 页，最多 10 条
-results = crawl_contracts(
+results = crawl_cases(
     keyword="合同纠纷",
     max_pages=1,
     page_size=10,

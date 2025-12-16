@@ -525,7 +525,7 @@ def download_for_contract(
 
 # ----------------- 对外主接口 -----------------
 
-def crawl_contracts(
+def crawl_cases(
     keyword: Optional[str] = None,
     ids: Optional[List[str]] = None,
     max_pages: int = 1,
@@ -689,7 +689,7 @@ def main_cli():
     if not args.token:
         print("⚠ 未提供 --token，调用接口很可能 400/401，请从浏览器 F12 中复制 faxin-cpws-al-token。")
 
-    results = crawl_contracts(
+    results = crawl_cases(
         keyword=args.keyword or None,
         ids=id_list,
         max_pages=args.max_pages,
