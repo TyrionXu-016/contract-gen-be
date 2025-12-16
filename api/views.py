@@ -7,6 +7,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from .models import Document
 from .serializers import DocumentSerializer
+from .dbManager.VectorDBManager import VectorDBManager
 import uuid
 
 
@@ -171,6 +172,83 @@ class CurrentUserView(APIView):
             "username": user.username,
             "email": user.email
         })
+
+
+class UserQueryView(APIView):
+    permission_classes = []
+
+    def post(self, request):
+        query_type = request.data.get('type')
+        region = request.data.get('region')
+        industry = request.data.get('industry')
+        context = request.data.get('context')
+
+        if not context:
+            return Response(
+                {"error": "context is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            query_result = self.handle_user_query(
+                query_type=query_type,
+                region=region,
+                industry=industry,
+                context=context
+            )
+            return Response(query_result, status=status.HTTP_200_OK)
+        except ValueError as error:
+            return Response(
+                {"error": str(error)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as error:
+            return Response(
+                {
+                    "error": "Failed to process user query",
+                    "details": str(error)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    def handle_user_query(self, query_type, region, industry, context):
+        if not context:
+            raise ValueError("context is required")
+
+        user_filters = {}
+        if query_type:
+            user_filters["type"] = query_type
+        if region:
+            user_filters["region"] = region
+        if industry:
+            user_filters["industry"] = industry
+
+        query_fragments = [context]
+        for fragment in (query_type, region, industry):
+            if fragment:
+                query_fragments.append(fragment)
+        combined_query_text = " ".join(query_fragments)
+
+        vector_database_manager = VectorDBManager()
+        search_result = vector_database_manager.dual_matching(
+            user_query=combined_query_text,
+            user_filters=user_filters
+        )
+
+        return {
+            "query": {
+                "type": query_type,
+                "region": region,
+                "industry": industry,
+                "context": context,
+                "combined": combined_query_text
+            },
+            "filters": user_filters,
+            "best_contract": search_result.get("best_contract"),
+            "alternative_contracts": search_result.get("alternative_contracts"),
+            "relevant_laws": search_result.get("relevant_laws"),
+            "relevant_case": search_result.get("relevant_case")
+        }
 
 
 # 原有的DocumentViewSet保持不变

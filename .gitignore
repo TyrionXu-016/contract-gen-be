@@ -1,1 +1,13 @@
+venv/*
+models/bge-large-zh/*
+*.whl
+公司法*
+合同法*
+民法典*
+__pycache__/*
+api/__pycache__/*
+api/migrations/__pycache__/*
+api/crawlers/__pycache__/*
+backend/__pycache__/*
+
 .env

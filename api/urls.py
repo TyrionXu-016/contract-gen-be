@@ -5,7 +5,8 @@ from .views import (
     DocumentViewSet,
     SimpleRegisterView,
     SimpleLoginView,
-    CurrentUserView
+    CurrentUserView,
+    UserQueryView
 )
 
 router = DefaultRouter()
@@ -15,5 +16,6 @@ urlpatterns = [
     path('', include(router.urls)),
     path('register/', SimpleRegisterView.as_view(), name='simple-register'),
     path('login/', SimpleLoginView.as_view(), name='simple-login'),
+    path('user_query/', UserQueryView.as_view(), name='user-query'),
     path('me/', CurrentUserView.as_view(), name='current-user'),
 ]

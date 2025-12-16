@@ -17,6 +17,17 @@ pymysql>=1.1.0
 # python-dotenv>=1.0  # 管理环境变量
 
 #model_api
-fastapi 
-uvicorn 
+fastapi
+uvicorn
 openai
+spacy>=3.7.2
+
+chromadb>=0.4.0
+transformers>=4.35.0
+sentence-transformers>=2.2.0
+numpy>=1.21.0
+torch>=2.0.0
+gradio>=3.0.0
+jieba>=0.42.1
+langchain>=0.1.0
+langchain-text-splitters>=0.0.1
